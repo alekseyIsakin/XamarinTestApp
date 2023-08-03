@@ -3,8 +3,8 @@ using Android.OS;
 using Android.Runtime;
 using Android.Widget;
 using Android.Content;
-using AndroidX.AppCompat.App;
 using Android.Views;
+using AndroidX.AppCompat.App;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -12,8 +12,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Text;
 using System.IO;
-using System.Diagnostics;
-using System.Net.Security;
+using Newtonsoft.Json;
 
 namespace App2
 {
@@ -40,7 +39,6 @@ namespace App2
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             SetContentView(Resource.Layout.activity_main);
 
-
             try
             {
                 Stream dt = await dataStream;
@@ -52,9 +50,9 @@ namespace App2
             }
 
             ListView l = FindViewById<ListView>(Resource.Id.listView1);
+
             var adapter = new CustomListAdapter(this, data);
             l.Adapter = adapter;
-
             l.ItemClick += (sender, e) =>
             {
                 Offer select = adapter[e.Position];
@@ -78,6 +76,7 @@ namespace App2
             settings.Async = true;
             settings.DtdProcessing = DtdProcessing.Ignore;
             XmlReader reader = XmlReader.Create(xmlStream, settings);
+            XmlDocument xmlDoc = new XmlDocument();
 
             while (await reader.ReadAsync())
             {
@@ -85,16 +84,19 @@ namespace App2
                 switch (reader.NodeType)
                 {
                     case XmlNodeType.Element:
-                        System.Diagnostics.Debug.WriteLine(reader.Name);
                         if (reader.Name != "offer")
                             break;
                         var id = reader.GetAttribute("id");
-                        var innerXml = reader.ReadInnerXml();
+                        var innerXml = reader.ReadOuterXml();
+                        System.Diagnostics.Debug.WriteLine(innerXml);
+                        xmlDoc.LoadXml(innerXml);
+
+                        ;
 
                         Offer offer = new Offer()
                         {
                             ID = id,
-                            InnerXml = innerXml
+                            InnerXml = JsonConvert.SerializeXmlNode(xmlDoc)
                         };
                         res.Add(offer);
                         break;
