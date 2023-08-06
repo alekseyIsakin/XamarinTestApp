@@ -13,6 +13,7 @@ using System.Xml;
 using System.Text;
 using System.IO;
 using Newtonsoft.Json;
+using System.Threading;
 
 namespace App2
 {
@@ -21,19 +22,65 @@ namespace App2
         public string ID;
         public string InnerXml;
     }
+    public class DataFetcher
+    {
+        private HttpClient client = new HttpClient();
+
+        public async Task<List<Offer>> FetchDataAsync(Stream xmlStream)
+        {
+            List<Offer> res = new List<Offer>();
+            XmlReaderSettings settings = new XmlReaderSettings();
+            settings.Async = true;
+            settings.DtdProcessing = DtdProcessing.Ignore;
+            XmlReader reader = XmlReader.Create(xmlStream, settings);
+            XmlDocument xmlDoc = new XmlDocument();
+
+            while (await reader.ReadAsync())
+            {
+                switch (reader.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        if (reader.Name != "offer")
+                            break;
+                        var id = reader.GetAttribute("id");
+                        var innerXml = reader.ReadOuterXml();
+                        xmlDoc.LoadXml(innerXml);
+
+                        Offer offer = new Offer()
+                        {
+                            ID = id,
+                            InnerXml = JsonConvert.SerializeXmlNode(xmlDoc)
+                        };
+                        res.Add(offer);
+                        break;
+                }
+            }
+            return res;
+        }
+        public async Task<Stream> GetDataStreamAsync(string url)
+        {
+            var resp = await client.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                return await resp.Content.ReadAsStreamAsync();
+            }
+            return Stream.Null;
+        }
+    }
 
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
-        private HttpClient client = new HttpClient();
-
+        readonly DataFetcher dataFetcher = new DataFetcher();
         protected override async void OnCreate(Bundle savedInstanceState)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            string url = "https://yastatic.net/market-export/_/partner/help/YML.xml";
 
-            Task<Stream> dataStream = FetchTestDataAsync(url);
-            List<Offer> data = new List<Offer>(){ };
+            //string url = "https://yastatic.net/market-export/_/partner/help/YML.xml";
+            string url = "https://github.com/";
+
+            Task<Stream> dataStream = dataFetcher.GetDataStreamAsync(url);
+            List<Offer> data = new List<Offer>() { };
 
             base.OnCreate(savedInstanceState);
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
@@ -42,10 +89,10 @@ namespace App2
             try
             {
                 Stream dt = await dataStream;
-                data = await FetchTestDataAsync(dt);
+                data = await dataFetcher.FetchDataAsync(dt);
             }catch (Exception e)
             {
-                Toast.MakeText(this, e.Message, ToastLength.Long).Show();
+                Toast.MakeText(this, Resource.String.error, ToastLength.Long).Show();
                 System.Diagnostics.Debug.WriteLine(e.Message);
             }
 
@@ -68,54 +115,7 @@ namespace App2
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
-
-        protected async Task<List<Offer>> FetchTestDataAsync(Stream xmlStream)
-        {
-            List<Offer> res = new List<Offer>();
-            XmlReaderSettings settings = new XmlReaderSettings();
-            settings.Async = true;
-            settings.DtdProcessing = DtdProcessing.Ignore;
-            XmlReader reader = XmlReader.Create(xmlStream, settings);
-            XmlDocument xmlDoc = new XmlDocument();
-
-            while (await reader.ReadAsync())
-            {
-
-                switch (reader.NodeType)
-                {
-                    case XmlNodeType.Element:
-                        if (reader.Name != "offer")
-                            break;
-                        var id = reader.GetAttribute("id");
-                        var innerXml = reader.ReadOuterXml();
-                        System.Diagnostics.Debug.WriteLine(innerXml);
-                        xmlDoc.LoadXml(innerXml);
-
-                        ;
-
-                        Offer offer = new Offer()
-                        {
-                            ID = id,
-                            InnerXml = JsonConvert.SerializeXmlNode(xmlDoc)
-                        };
-                        res.Add(offer);
-                        break;
-                }
-            }
-            return res;
-        }
-        protected async Task<Stream> FetchTestDataAsync(string url)
-        {
-            var resp = await client.GetAsync(url);
-            if (resp.IsSuccessStatusCode)
-            {
-                return resp.Content.ReadAsStreamAsync().Result;
-            }
-            return Stream.Null;
-        }
     }
-
-
 
     public class CustomListAdapter : BaseAdapter<Offer>
     {
