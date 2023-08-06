@@ -76,8 +76,8 @@ namespace App2
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            //string url = "https://yastatic.net/market-export/_/partner/help/YML.xml";
-            string url = "https://github.com/";
+            string url = "https://yastatic.net/market-export/_/partner/help/YML.xml";
+            //string url = "https://github.com/";
 
             Task<Stream> dataStream = dataFetcher.GetDataStreamAsync(url);
             List<Offer> data = new List<Offer>() { };
